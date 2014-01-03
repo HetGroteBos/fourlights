@@ -21,6 +21,12 @@ stream = p.open(format=p.get_format_from_width(2),
                 output=True)
 
 dmx = ctypes.CDLL('./usb.so')
+
+dmx.open_dmx.argtypes = []
+dmx.open_dmx.restype = ctypes.c_void_p
+dmx.write_buf.argtypes = [ctypes.c_void_p, ctypes.c_char_p, ctypes.c_int]
+dmx.write_buf.restype = ctypes.c_int
+
 dmx_ctx = dmx.open_dmx()
 
 dmx_colour = lambda r, g, b: dmx.write_buf(dmx_ctx, str(np.array([r, g, b], dtype=np.byte).data), 3)
@@ -84,9 +90,10 @@ def render():
 
     glDrawArrays(GL_QUADS, 0, RESOLUTION * 4)
 
-    #dmx_colour(freq[20] * 255, freq[200] * 255, freq[600] * 255)
-    #dmx_colour(freq[10] * 255, freq[20] * 255, freq[30] * 255)
-    dmx_colour2([freq[10 * (i + 1)] * 255 for i in xrange(12)])
+    ##dmx_colour(freq[20] * 255, freq[200] * 255, freq[600] * 255)
+    ##dmx_colour(freq[10] * 255, freq[20] * 255, freq[30] * 255)
+
+    dmx_colour2([freq[10 * (i + 1)] * 35 for i in xrange(12)])
 
     #for i in xrange(RESOLUTION):
     #    p = float(i) / RESOLUTION
@@ -130,7 +137,8 @@ def idle(once = [True]):
     #freq = np.log(freq) / np.log(10)
     #freq /= np.max(freq)
     #freq /= 64.0
-    freq /= 400000.0
+    #freq /= 400000.0
+    freq /= 1000000.0
     #ival = lambda x: x * pi
     #lfo = np.cos(np.linspace(ival(counter), ival(counter + CINC), RESOLUTION))
     #doge = np.cos(np.linspace(0.0, (float(RESOLUTION - 1) / RESOLUTION) * RESOLUTION * pi, RESOLUTION) * lfo)
@@ -140,7 +148,8 @@ def idle(once = [True]):
     #print sample * 10
     print sample
     #stream.write(wav[sample:sample + RESOLUTION].tostring())
-    stream.write(wav.tostring())
+
+    #stream.write(wav.tostring())
     glutPostRedisplay()
     pass
 
