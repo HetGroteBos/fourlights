@@ -80,28 +80,24 @@ void close_dmx(libusb_device_handle *h) {
 }
 
 void sin_demo(libusb_device_handle *h, unsigned char *buf, int bufsize) {
-    for (int k = 0; k < 100; k++) {
-        for (int c = 0; c < 360; c++) {
-            for (int i = 0; i < bufsize; i += 3) {
-                double r, g, b = 0;
+    int foo = 0;
 
-                r = fabs(sin(((c / 180. * M_PI) + (k % 3) * 0.5 * M_PI)));
-                g = fabs(sin(((c / 180. * M_PI) + (k % 3 + 1) * 0.5 * M_PI)));
-                b = fabs(sin(((c / 180. * M_PI) + (k % 3 + 2) * 0.5 * M_PI)));
+    for (int i = 0; i < 10000; i++) {
 
-                buf[i] = r * 55;
-                buf[i + 1] = g * 55;
-                buf[i + 2] = b * 55;
-
-                write_buf(h, buf, bufsize);
-            }
-            usleep(20000);
+        for (int c = 0; c < bufsize; c+=3) {
+            buf[c + 0] = 255 * !foo;
+            buf[c + 1] = 255 * !foo;
+            buf[c + 2] = 255 * !foo;
         }
+
+        foo = (foo + 1) % 10;
+        write_buf(h, buf, bufsize);
+        usleep(10000);
     }
 }
 
 void demo(libusb_device_handle *h) {
-    int bufsize = 3;
+    int bufsize = 12;
     unsigned char *buf = calloc(bufsize, sizeof(unsigned char));
 
     sin_demo(h, buf, bufsize);

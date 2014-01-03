@@ -9,6 +9,23 @@ from OpenGL.GL import *
 
 from wavepy import z as wav
 
+import ctypes
+
+import pyaudio
+
+p = pyaudio.PyAudio()
+stream = p.open(format=p.get_format_from_width(2),
+                channels=2,
+                rate=44100,
+                output=True)
+
+dmx = ctypes.CDLL('./usb.so')
+dmx_ctx = dmx.open_dmx()
+
+dmx_colour = lambda r, g, b: dmx.write_buf(dmx_ctx, str(np.array([r, g, b], dtype=np.byte).data), 3)
+dmx_colour2 = lambda z: dmx.write_buf(dmx_ctx, str(np.array(z, dtype=np.byte).data), len(z))
+
+
 #RESOLUTION=256
 RESOLUTION=1024
 #RESOLUTION=4096
@@ -65,6 +82,10 @@ def render():
 
     glDrawArrays(GL_QUADS, 0, RESOLUTION * 4)
 
+    #dmx_colour(freq[20] * 255, freq[200] * 255, freq[600] * 255)
+    #dmx_colour(freq[10] * 255, freq[20] * 255, freq[30] * 255)
+    dmx_colour2([freq[10 * (i + 1)] * 511 for i in xrange(12)])
+
     #for i in xrange(RESOLUTION):
     #    p = float(i) / RESOLUTION
     #    r = (1.0 / RESOLUTION) * 1.9 
@@ -90,7 +111,8 @@ def idle(once = [True]):
     global counter
     global sample
 
-    time.sleep(0.02)
+    #time.sleep(0.02)
+    #time.sleep(1.0 / (44100 / 1024.0))
 
     #counter += CINC
     #counter %= 1.0
@@ -112,6 +134,7 @@ def idle(once = [True]):
     doge = wav[sample:sample + RESOLUTION, 0]
     #print sample * 10
     print sample
+    stream.write(wav[sample:sample + RESOLUTION].tostring())
     glutPostRedisplay()
     pass
 
