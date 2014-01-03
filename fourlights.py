@@ -7,7 +7,8 @@ from math import pi
 from OpenGL.GLUT import *
 from OpenGL.GL import *
 
-from wavepy import z as wav
+import sys
+#from wavepy import z as wav
 
 import ctypes
 
@@ -29,6 +30,7 @@ dmx_colour2 = lambda z: dmx.write_buf(dmx_ctx, str(np.array(z, dtype=np.byte).da
 #RESOLUTION=256
 RESOLUTION=1024
 #RESOLUTION=4096
+#RESOLUTION=2048
 #RESOLUTION=32
 
 glutInit()
@@ -84,7 +86,7 @@ def render():
 
     #dmx_colour(freq[20] * 255, freq[200] * 255, freq[600] * 255)
     #dmx_colour(freq[10] * 255, freq[20] * 255, freq[30] * 255)
-    dmx_colour2([freq[10 * (i + 1)] * 511 for i in xrange(12)])
+    dmx_colour2([freq[10 * (i + 1)] * 255 for i in xrange(12)])
 
     #for i in xrange(RESOLUTION):
     #    p = float(i) / RESOLUTION
@@ -125,16 +127,20 @@ def idle(once = [True]):
         once[0] = False
         print ifr
     freq = np.abs(ifr)
-    freq /= np.max(freq)
+    #freq = np.log(freq) / np.log(10)
+    #freq /= np.max(freq)
     #freq /= 64.0
-    freq /= 4.0
+    freq /= 400000.0
     #ival = lambda x: x * pi
     #lfo = np.cos(np.linspace(ival(counter), ival(counter + CINC), RESOLUTION))
     #doge = np.cos(np.linspace(0.0, (float(RESOLUTION - 1) / RESOLUTION) * RESOLUTION * pi, RESOLUTION) * lfo)
-    doge = wav[sample:sample + RESOLUTION, 0]
+    #doge = wav[sample:sample + RESOLUTION, 0]
+    wav = np.frombuffer(sys.stdin.read(RESOLUTION * 4), dtype=np.int16)
+    doge = wav[::2]
     #print sample * 10
     print sample
-    stream.write(wav[sample:sample + RESOLUTION].tostring())
+    #stream.write(wav[sample:sample + RESOLUTION].tostring())
+    stream.write(wav.tostring())
     glutPostRedisplay()
     pass
 
