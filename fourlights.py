@@ -93,7 +93,6 @@ def render():
     ##dmx_colour(freq[20] * 255, freq[200] * 255, freq[600] * 255)
     ##dmx_colour(freq[10] * 255, freq[20] * 255, freq[30] * 255)
 
-    dmx_colour2([freq[10 * (i + 1)] * 35 for i in xrange(12)])
 
     #for i in xrange(RESOLUTION):
     #    p = float(i) / RESOLUTION
@@ -150,6 +149,7 @@ def idle(once = [True]):
     #stream.write(wav[sample:sample + RESOLUTION].tostring())
 
     #stream.write(wav.tostring())
+    dmx_colour2([freq[10 * (i + 1)] * 55 for i in xrange(12)])
     glutPostRedisplay()
     pass
 
