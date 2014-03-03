@@ -4,166 +4,176 @@ import numpy as np
 import time
 from math import pi
 
-from OpenGL.GLUT import *
-from OpenGL.GL import *
-
 import sys
 #from wavepy import z as wav
 
 import ctypes
 
+RESOLUTION = 1024
+
+from OpenGL.GLUT import *
+from OpenGL.GL import *
+
 import pyaudio
 
-p = pyaudio.PyAudio()
-stream = p.open(format=p.get_format_from_width(2),
-                channels=2,
-                rate=44100,
-                output=True)
+class FourLights(object):
 
-dmx = ctypes.CDLL('./usb.so')
+    def __init__(self, inp):
+        self.inp = inp
+        self.freq = np.linspace(0.2, 0.8, RESOLUTION)
+        self.doge = np.cos(np.linspace(0.0, (float(RESOLUTION - 1) / RESOLUTION) * 2 * pi, RESOLUTION))
 
-dmx.open_dmx.argtypes = []
-dmx.open_dmx.restype = ctypes.c_void_p
-dmx.write_buf.argtypes = [ctypes.c_void_p, ctypes.c_char_p, ctypes.c_int]
-dmx.write_buf.restype = ctypes.c_int
+        self.sample = 0
 
-dmx_ctx = dmx.open_dmx()
+        self.fcs = []
 
-dmx_colour = lambda r, g, b: dmx.write_buf(dmx_ctx, str(np.array([r, g, b], dtype=np.byte).data), 3)
-dmx_colour2 = lambda z: dmx.write_buf(dmx_ctx, str(np.array(z, dtype=np.byte).data), len(z))
+    def next(self):
+        self.sample += RESOLUTION
+        ifr = np.fft.fft(self.doge)
+        self.freq = np.abs(ifr)
+        self.freq /= 1000000.0
+        self.wav = np.frombuffer(self.inp.read(RESOLUTION * 4), dtype=np.int16)
+        self.doge = self.wav[::2]
+
+        for _ in self.fcs:
+            _(self)
+
+class FourDMX(object):
+    def __init__(self):
+        self.dmx = ctypes.CDLL('./usb.so')
+
+        self.dmx.open_dmx.argtypes = []
+        self.dmx.open_dmx.restype = ctypes.c_void_p
+        self.dmx.write_buf.argtypes = [ctypes.c_void_p, ctypes.c_char_p, ctypes.c_int]
+        self.dmx.write_buf.restype = ctypes.c_int
+
+    def open(self):
+        self.dmx_ctx = self.dmx.open_dmx()
+        return self.dmx_ctx
+
+    def write(self, z):
+        self.dmx.write_buf(self.dmx_ctx, str(np.array(z, dtype=np.byte).data), len(z))
+
+class FourAudio(object):
+
+    def __init__(self):
+        p = pyaudio.PyAudio()
+        self.stream = p.open(format=p.get_format_from_width(2),
+                        channels=2,
+                        rate=44100,
+                        output=True)
+
+    def write(self, wav):
+        self.stream.write(wav)
+
+class FourGL(object):
+    def __init__(self, fourlights):
+
+        glutInit()
+
+        self.fl = fourlights
+
+        # Setup OpenGL Window
+        glutInitDisplayMode(GLUT_RGBA | GLUT_DOUBLE)
+        self.win = glutCreateWindow('Fourier')
+
+        glEnableClientState(GL_VERTEX_ARRAY)
+        glEnableClientState(GL_COLOR_ARRAY)
+
+        self.create_vertices()
+
+    def create_vertices(self):
+        cols = []
+        self.vertices = []
+        for i in xrange(RESOLUTION):
+            p = float(i) / RESOLUTION
+            r = (1.0 / RESOLUTION) * 1.9 
+            for _ in xrange(4):
+                cols.append((p, 0, 1 - p))
+            x = p * 2 - 1
+            self.vertices.append((x, p * 2 - 1))
+            self.vertices.append((x, -1))
+            self.vertices.append((x + r, -1))
+            self.vertices.append((x + r, p * 2 - 1))
+
+        cols = np.array(cols, dtype=np.float)
+        self.vertices = np.array(self.vertices, dtype=np.float)
+        #glColorPointer(3, GL_FLOAT, 0, [0.,] * 9)
+        glColorPointer(3, GL_FLOAT, 0, cols)
+
+    def draw(self):
+        glClear(GL_COLOR_BUFFER_BIT)
+
+        self.vertices[::4, 1] = self.fl.freq * 2 - 1
+        self.vertices[3::4, 1] = self.fl.freq * 2 - 1
+        glVertexPointer(2, GL_FLOAT, 0, self.vertices)
+
+        glDrawArrays(GL_QUADS, 0, RESOLUTION * 4)
+
+        glutSwapBuffers()
 
 
-#RESOLUTION=256
-RESOLUTION=1024
-#RESOLUTION=4096
-#RESOLUTION=2048
-#RESOLUTION=32
-
-glutInit()
-
-# Setup OpenGL Window
-glutInitDisplayMode(GLUT_RGBA | GLUT_DOUBLE)
-win = glutCreateWindow('Fourier')
-
-freq = np.linspace(0.2, 0.8, RESOLUTION)
-doge = np.cos(np.linspace(0.0, (float(RESOLUTION - 1) / RESOLUTION) * 2 * pi, RESOLUTION))
-
-glEnableClientState(GL_VERTEX_ARRAY)
-glEnableClientState(GL_COLOR_ARRAY)
-
-def hoi():
-    global vertices
-    cols = []
-    vertices = []
-    for i in xrange(RESOLUTION):
-        p = float(i) / RESOLUTION
-        r = (1.0 / RESOLUTION) * 1.9 
-        for _ in xrange(4):
-            cols.append((p, 0, 1 - p))
-        x = p * 2 - 1
-        vertices.append((x, p * 2 - 1))
-        vertices.append((x, -1))
-        vertices.append((x + r, -1))
-        vertices.append((x + r, p * 2 - 1))
-    cols = np.array(cols, dtype=np.float)
-    vertices = np.array(vertices, dtype=np.float)
-    #glColorPointer(3, GL_FLOAT, 0, [0.,] * 9)
-    glColorPointer(3, GL_FLOAT, 0, cols)
-hoi()
-
-# Window size changed
-def reshape(width, height):
-    global glob_w, glob_h
-    glob_w, glob_h = width, height
-    glViewport(0, 0, width, height)
-
-def render():
-    global vertices
-    glClear(GL_COLOR_BUFFER_BIT)
-
-    print vertices.shape
-    vertices[::4, 1] = freq * 2 - 1
-    vertices[3::4, 1] = freq * 2 - 1
-    glVertexPointer(2, GL_FLOAT, 0, vertices)
-
-    #glBegin(GL_QUADS)
-
-    glDrawArrays(GL_QUADS, 0, RESOLUTION * 4)
-
-    ##dmx_colour(freq[20] * 255, freq[200] * 255, freq[600] * 255)
-    ##dmx_colour(freq[10] * 255, freq[20] * 255, freq[30] * 255)
+GUI = True
+DMX = True
+ECHO = False
 
 
-    #for i in xrange(RESOLUTION):
-    #    p = float(i) / RESOLUTION
-    #    r = (1.0 / RESOLUTION) * 1.9 
+if __name__ == '__main__':
+    fl = FourLights(sys.stdin)
 
-    #    x = p * 2 - 1
-    #    glColor(p, 0, 1 - p)
-    #    glVertex(x, freq[i] * 2 - 1)
-    #    glVertex(x, -1)
-    #    glVertex(x + r, -1)
-    #    glVertex(x + r, freq[i] * 2 - 1)
+    if DMX:
+        dmx = FourDMX()
+        dmx.open()
 
-    #glEnd()
+        def write_led(fourlights):
+            wr = [fourlights.freq[4 * (i + 1)] * 15 for i in xrange(12)]
+            dmx.write(wr)
 
-    glutSwapBuffers()
+        fl.fcs.append(write_led)
 
-counter = 0.0
-CINC = 0.02
-sample = 0
+    if ECHO:
+        au = FourAudio()
 
-def idle(once = [True]):
-    global freq
-    global doge
-    global counter
-    global sample
+        def write_wav(fourlights):
+            w = fourlights.wav.tostring()
+            au.write(w)
 
-    #time.sleep(0.02)
-    #time.sleep(1.0 / (44100 / 1024.0))
+        fl.fcs.append(write_wav)
 
-    #counter += CINC
-    #counter %= 1.0
+    if not GUI:
+        while True:
+            fl.next()
 
-    sample += RESOLUTION
+        exit(0)
 
-    #freq = np.random.random((RESOLUTION,))
-    ifr = np.fft.fft(doge)
-    if (once[0]):
-        once[0] = False
-        print ifr
-    freq = np.abs(ifr)
-    #freq = np.log(freq) / np.log(10)
-    #freq /= np.max(freq)
-    #freq /= 64.0
-    #freq /= 400000.0
-    freq /= 1000000.0
-    #ival = lambda x: x * pi
-    #lfo = np.cos(np.linspace(ival(counter), ival(counter + CINC), RESOLUTION))
-    #doge = np.cos(np.linspace(0.0, (float(RESOLUTION - 1) / RESOLUTION) * RESOLUTION * pi, RESOLUTION) * lfo)
-    #doge = wav[sample:sample + RESOLUTION, 0]
-    wav = np.frombuffer(sys.stdin.read(RESOLUTION * 4), dtype=np.int16)
-    doge = wav[::2]
-    #print sample * 10
-    print sample
-    #stream.write(wav[sample:sample + RESOLUTION].tostring())
+    fgl = FourGL(fl)
 
-    #stream.write(wav.tostring())
-    dmx_colour2([freq[10 * (i + 1)] * 55 for i in xrange(12)])
-    glutPostRedisplay()
-    pass
+    # TODO: GUI Hacks follow
 
-# Handle keyboard input
-def keyboard(c, x, y):
-    pass
+    def idle():
+        fl.next()
+        glutPostRedisplay()
 
-# Setup remaining callbacks and start the program
-glutReshapeFunc(reshape)
-glutKeyboardFunc(keyboard)
-glutIdleFunc(idle)
+    # Handle keyboard input
+    def keyboard(c, x, y):
+        pass
 
-#glClearColor(0.2, 0.4, 0.8, 1.0)
-glutDisplayFunc(render)
+    def render():
+        fgl.draw()
 
-glutMainLoop()
+    # Window size changed
+    def reshape(width, height):
+        global glob_w, glob_h
+        glob_w, glob_h = width, height
+        glViewport(0, 0, width, height)
 
+
+    # Setup remaining callbacks and start the program
+    glutReshapeFunc(reshape)
+    glutKeyboardFunc(keyboard)
+    glutIdleFunc(idle)
+
+    #glClearColor(0.2, 0.4, 0.8, 1.0)
+    glutDisplayFunc(render)
+
+    glutMainLoop()
