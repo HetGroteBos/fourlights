@@ -1,0 +1,9 @@
+* Rethink API :-)
+* Add virtual LEDs in GUI
+* Show what part is being shown by what LED (for simple algorithms)
+* Work on much nicer LED light algorithms
+* Add ledwall output extension
+* Add <insert here> extension
+* Create EXAMPLES file with examples
+  - parec --latency-msec=50 -r -d 0 | python fourlights.py
+  - python fourlights.py < ~/kiri.wav
