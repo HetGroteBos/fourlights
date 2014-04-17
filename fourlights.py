@@ -9,11 +9,13 @@ import sys
 
 import ctypes
 
-RESOLUTION = 1024 * 2
+RESOLUTION = 1024 * 1
 SAMPLERATE = 44100
 
 LEWDWALL_IP='10.0.20.16'
 LEWDWALL_PORT=8000
+
+SPECTROGRAM_LENGTH = 1024
 
 from OpenGL.GLUT import *
 from OpenGL.GL import *
@@ -90,7 +92,7 @@ class FourGL(object):
 
         # Setup OpenGL Window
         glutInitDisplayMode(GLUT_RGBA | GLUT_DOUBLE)
-        self.win = glutCreateWindow('Fourier')
+        self.win = glutCreateWindow('Fourlights')
 
         glEnableClientState(GL_VERTEX_ARRAY)
         glEnableClientState(GL_COLOR_ARRAY)
@@ -141,7 +143,7 @@ class FourGL(object):
     def draw(self):
         glMatrixMode(GL_PROJECTION)
         glLoadIdentity()
-        glOrtho(-1.0, -.8, -1.0, 1.0, -1.0, 1.0)
+        #glOrtho(-1.0, -.8, -1.0, 1.0, -1.0, 1.0)
         glMatrixMode(GL_MODELVIEW)
 
         glClear(GL_COLOR_BUFFER_BIT)
@@ -155,6 +157,72 @@ class FourGL(object):
         glColorPointer(3, GL_FLOAT, 0, self.pointer_cols)
         glVertexPointer(2, GL_FLOAT, 0, self.pointer_verts)
         glDrawArrays(GL_TRIANGLES, 0, len(self.fl.lights) * 3 * 3)
+
+        glutSwapBuffers()
+
+class FourSpectroGL(object):
+    def __init__(self, fourlights):
+
+        glutInit()
+
+        self.fl = fourlights
+
+        # Setup OpenGL Window
+        glutInitDisplayMode(GLUT_RGBA | GLUT_DOUBLE)
+        self.win = glutCreateWindow('Fourlights')
+
+        self.spectrogram = glGenTextures(1)
+        self.frame_counter = 0
+
+        glBindTexture(GL_TEXTURE_2D, self.spectrogram)
+
+        # Tightly packed data
+        glPixelStorei(GL_PACK_ALIGNMENT, 1)
+        glPixelStorei(GL_UNPACK_ALIGNMENT, 1)
+
+        # Clear texture (black)
+        texdata = np.zeros((SPECTROGRAM_LENGTH, RESOLUTION, 3), dtype=np.byte)
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB8, SPECTROGRAM_LENGTH, RESOLUTION,
+            0, GL_RGB, GL_UNSIGNED_BYTE, texdata)
+
+        # Simple interpolation and repeat
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST)
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST)
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT)
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT)
+
+        # Finally enable texture visiblity
+        glEnable(GL_TEXTURE_2D)
+
+    def draw(self):
+        glMatrixMode(GL_PROJECTION)
+        glLoadIdentity()
+        #glOrtho(-1.0, -.8, -1.0, 1.0, -1.0, 1.0)
+        glMatrixMode(GL_MODELVIEW)
+
+        # Update spectogram
+        texdata = np.reshape(np.array(self.fl.freq * 10000, dtype=np.byte), (-1, 1))[:, [0, 0, 0]]
+        #print texdata[1:5]
+        glTexSubImage2D(GL_TEXTURE_2D, 0, self.frame_counter, 0, 1, RESOLUTION,
+            GL_RGB, GL_UNSIGNED_BYTE, texdata)
+
+        self.frame_counter = (self.frame_counter + 1) % SPECTROGRAM_LENGTH
+
+        glClear(GL_COLOR_BUFFER_BIT)
+
+        glBegin(GL_QUADS)
+        glTexCoord(0.0, 1.0)
+        glVertex(-1, -1)
+
+        glTexCoord(0.0, 0.0)
+        glVertex(-1,  1)
+
+        glTexCoord(1.0, 0.0)
+        glVertex( 1,  1)
+
+        glTexCoord(1.0, 1.0)
+        glVertex( 1, -1)
+        glEnd()
 
         glutSwapBuffers()
 
@@ -191,6 +259,7 @@ class FourLewds(object):
         self.screen.push()
 
 GUI = True
+SPECTRE = True
 DMX = False
 ECHO = False
 LEWD = False
@@ -259,7 +328,10 @@ if __name__ == '__main__':
 
         exit(0)
 
-    fgl = FourGL(fl)
+    if SPECTRE:
+        fgl = FourSpectroGL(fl)
+    else:
+        fgl = FourGL(fl)
 
     # TODO: GUI Hacks follow
 
