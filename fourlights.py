@@ -39,6 +39,8 @@ class FourLights(object):
         self.lights = lights
         self.freq = np.linspace(0.2, 0.8, RESOLUTION)
         self.doge = np.cos(np.linspace(0.0, (float(RESOLUTION - 1) / RESOLUTION) * 2 * pi, RESOLUTION))
+        self.doger = self.doge
+        self.dogel = self.doge
 
         self.sample = 0
 
@@ -46,11 +48,17 @@ class FourLights(object):
 
     def next(self):
         self.sample += RESOLUTION
-        ifr = np.fft.fft(self.doge)
-        self.freq = np.abs(ifr)
-        self.freq /= 1000000.0
+        ifr_r = np.fft.fft(self.doger)
+        ifr_l = np.fft.fft(self.dogel)
+        self.freqr = np.abs(ifr_r)
+        self.freqr /= 1000000.0
+        self.freql = np.abs(ifr_l)
+        self.freql /= 1000000.0
+        # TODO: remove alias.
+        self.freq = self.freql
         self.wav = np.frombuffer(self.inp.read(RESOLUTION * 4), dtype=np.int16)
-        self.doge = self.wav[::2]
+        self.dogel = self.wav[::2]
+        self.doger = self.wav[1::2]
 
         for _ in self.fcs:
             _(self)
@@ -181,8 +189,8 @@ class FourSpectroGL(object):
         glPixelStorei(GL_UNPACK_ALIGNMENT, 1)
 
         # Clear texture (black)
-        texdata = np.zeros((SPECTROGRAM_LENGTH, RESOLUTION, 3), dtype=np.byte)
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB8, SPECTROGRAM_LENGTH, RESOLUTION,
+        texdata = np.zeros((SPECTROGRAM_LENGTH, RESOLUTION / 2, 3), dtype=np.byte)
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB8, SPECTROGRAM_LENGTH, RESOLUTION / 2,
             0, GL_RGB, GL_UNSIGNED_BYTE, texdata)
 
         # Simple interpolation and repeat
@@ -201,9 +209,17 @@ class FourSpectroGL(object):
         glMatrixMode(GL_MODELVIEW)
 
         # Update spectogram
-        texdata = np.reshape(np.array(self.fl.freq * 10000, dtype=np.byte), (-1, 1))[:, [0, 0, 0]]
+        #texdata = np.reshape(np.array(self.fl.freq * 10000, dtype=np.byte), (-1, 1))[:, [0, 0, 0]]
+        #texdata = np.reshape(np.array(self.fl.freq * 100, dtype=np.byte), (-1, 1))[:, [0, 0, 0]]
+        #texdata = np.reshape(np.array(np.minimum(self.fl.freq[:RESOLUTION / 2] * 255 * 40, 255), dtype=np.ubyte), (-1, 1))[:, [0, 0, 0]]
+        #texdata = np.reshape(np.array(np.minimum(self.fl.freq * 255 * 1, 255), dtype=np.ubyte), (-1, 1))[:, [0, 0, 0]]
+        #texdata = np.reshape(np.array(np.minimum(self.fl.freq * 255 * 40, 255), dtype=np.ubyte), (
+        frl = np.reshape(np.array(np.minimum(self.fl.freql[:RESOLUTION / 2] * 255 * 40, 255), dtype=np.ubyte), (-1, 1))
+        frr = np.reshape(np.array(np.minimum(self.fl.freqr[:RESOLUTION / 2] * 255 * 40, 255), dtype=np.ubyte), (-1, 1))
+        texdata = np.hstack((frl, frr, frr / 2 + frl / 2))
+
         #print texdata[1:5]
-        glTexSubImage2D(GL_TEXTURE_2D, 0, self.frame_counter, 0, 1, RESOLUTION,
+        glTexSubImage2D(GL_TEXTURE_2D, 0, self.frame_counter, 0, 1, RESOLUTION / 2,
             GL_RGB, GL_UNSIGNED_BYTE, texdata)
 
         self.frame_counter = (self.frame_counter + 1) % SPECTROGRAM_LENGTH
@@ -212,16 +228,16 @@ class FourSpectroGL(object):
 
         glBegin(GL_QUADS)
         glTexCoord(0.0, 1.0)
-        glVertex(-1, -1)
-
-        glTexCoord(0.0, 0.0)
         glVertex(-1,  1)
 
+        glTexCoord(0.0, 0.0)
+        glVertex(-1, -1)
+
         glTexCoord(1.0, 0.0)
-        glVertex( 1,  1)
+        glVertex( 1, -1)
 
         glTexCoord(1.0, 1.0)
-        glVertex( 1, -1)
+        glVertex( 1,  1)
         glEnd()
 
         glutSwapBuffers()
