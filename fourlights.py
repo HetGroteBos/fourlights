@@ -9,18 +9,29 @@ import sys
 
 import ctypes
 
-RESOLUTION = 1024 * 1
+#RESOLUTION = 512
+#RESOLUTION = 128
+RESOLUTION = 1024
 SAMPLERATE = 44100
 
 LEWDWALL_IP='10.0.20.16'
 LEWDWALL_PORT=8000
 
 SPECTROGRAM_LENGTH = 1024
+#SPECTROGRAM_LENGTH = 256
 
 from OpenGL.GLUT import *
 from OpenGL.GL import *
 
 import pyaudio
+
+# globals object
+class Globals(object):
+    pass
+g = Globals()
+
+# some keyboard globals
+g.scroll_spectre = False
 
 def freq_to_fourier(hz):
     return int(RESOLUTION * hz / SAMPLERATE)
@@ -38,6 +49,8 @@ class FourLights(object):
         self.inp = inp
         self.lights = lights
         self.freq = np.linspace(0.2, 0.8, RESOLUTION)
+        self.freql = self.freq
+        self.freqr = self.freq
         self.doge = np.cos(np.linspace(0.0, (float(RESOLUTION - 1) / RESOLUTION) * 2 * pi, RESOLUTION))
         self.doger = self.doge
         self.dogel = self.doge
@@ -48,12 +61,20 @@ class FourLights(object):
 
     def next(self):
         self.sample += RESOLUTION
-        ifr_r = np.fft.fft(self.doger)
-        ifr_l = np.fft.fft(self.dogel)
-        self.freqr = np.abs(ifr_r)
-        self.freqr /= 1000000.0
-        self.freql = np.abs(ifr_l)
-        self.freql /= 1000000.0
+
+        w = (np.arange(0, 2 * (RESOLUTION / 2)) - (RESOLUTION / 2)) * (
+            1.0/ (RESOLUTION / 2))
+
+        www = (1. - w ** 2)
+
+        ifr_l = np.fft.fft(self.dogel * www)
+        ifr_r = np.fft.fft(self.doger * www)
+        #self.freql = np.abs(ifr_l / (32768 * (RESOLUTION / 2)))
+        #self.freqr = np.abs(ifr_r / (32768 * (RESOLUTION / 2)))
+        #self.freql = np.abs(ifr_l / (32768 * (RESOLUTION / 100)))
+        #self.freqr = np.abs(ifr_r / (32768 * (RESOLUTION / 100)))
+        self.freql = np.abs(ifr_l / ((RESOLUTION / 2) * (32768 / (RESOLUTION >> 2))))
+        self.freqr = np.abs(ifr_r / ((RESOLUTION / 2) * (32768 / (RESOLUTION >> 2))))
         # TODO: remove alias.
         self.freq = self.freql
         self.wav = np.frombuffer(self.inp.read(RESOLUTION * 4), dtype=np.int16)
@@ -168,6 +189,9 @@ class FourGL(object):
 
         glutSwapBuffers()
 
+    def idle(self):
+        pass
+
 class FourSpectroGL(object):
     def __init__(self, fourlights):
 
@@ -214,8 +238,36 @@ class FourSpectroGL(object):
         #texdata = np.reshape(np.array(np.minimum(self.fl.freq[:RESOLUTION / 2] * 255 * 40, 255), dtype=np.ubyte), (-1, 1))[:, [0, 0, 0]]
         #texdata = np.reshape(np.array(np.minimum(self.fl.freq * 255 * 1, 255), dtype=np.ubyte), (-1, 1))[:, [0, 0, 0]]
         #texdata = np.reshape(np.array(np.minimum(self.fl.freq * 255 * 40, 255), dtype=np.ubyte), (
-        frl = np.reshape(np.array(np.minimum(self.fl.freql[:RESOLUTION / 2] * 255 * 40, 255), dtype=np.ubyte), (-1, 1))
-        frr = np.reshape(np.array(np.minimum(self.fl.freqr[:RESOLUTION / 2] * 255 * 40, 255), dtype=np.ubyte), (-1, 1))
+        glClear(GL_COLOR_BUFFER_BIT)
+
+        if g.scroll_spectre:
+            base = self.frame_counter / float(SPECTROGRAM_LENGTH)
+        else:
+            base = 0.0
+
+        clamp = 0.0
+        if True:
+            clamp = 0.5
+
+        glBegin(GL_QUADS)
+        glTexCoord(base + 0.0, 1.0 - clamp)
+        glVertex(-1,  1)
+
+        glTexCoord(base + 0.0, 0.0)
+        glVertex(-1, -1)
+
+        glTexCoord(base + 1.0, 0.0)
+        glVertex( 1, -1)
+
+        glTexCoord(base + 1.0, 1.0 - clamp)
+        glVertex( 1,  1)
+        glEnd()
+
+        glutSwapBuffers()
+
+    def idle(self):
+        frl = np.reshape(np.array(np.minimum(self.fl.freql[:RESOLUTION / 2] * 255 * 1, 255), dtype=np.ubyte), (-1, 1))
+        frr = np.reshape(np.array(np.minimum(self.fl.freqr[:RESOLUTION / 2] * 255 * 1, 255), dtype=np.ubyte), (-1, 1))
         texdata = np.hstack((frl, frr, frr / 2 + frl / 2))
 
         #print texdata[1:5]
@@ -223,24 +275,6 @@ class FourSpectroGL(object):
             GL_RGB, GL_UNSIGNED_BYTE, texdata)
 
         self.frame_counter = (self.frame_counter + 1) % SPECTROGRAM_LENGTH
-
-        glClear(GL_COLOR_BUFFER_BIT)
-
-        glBegin(GL_QUADS)
-        glTexCoord(0.0, 1.0)
-        glVertex(-1,  1)
-
-        glTexCoord(0.0, 0.0)
-        glVertex(-1, -1)
-
-        glTexCoord(1.0, 0.0)
-        glVertex( 1, -1)
-
-        glTexCoord(1.0, 1.0)
-        glVertex( 1,  1)
-        glEnd()
-
-        glutSwapBuffers()
 
 class FourLewds(object):
     def __init__(self):
@@ -351,13 +385,23 @@ if __name__ == '__main__':
 
     # TODO: GUI Hacks follow
 
+    hoi = 0
+    frames = 0
     def idle():
+        global hoi, frames
+
         fl.next()
-        glutPostRedisplay()
+        hoi += 1
+        frames += 1
+        if hoi > 1 or True:
+            hoi = 0
+            glutPostRedisplay()
+        fgl.idle()
 
     # Handle keyboard input
     def keyboard(c, x, y):
-        pass
+        if c == 's':
+            g.scroll_spectre = not g.scroll_spectre
 
     def render():
         fgl.draw()
