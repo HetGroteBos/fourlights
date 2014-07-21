@@ -9,15 +9,20 @@ import sys
 
 import ctypes
 
-#RESOLUTION = 512
-#RESOLUTION = 128
-RESOLUTION = 1024
+#WINDOW = 512
+#WINDOW = 128
+WINDOW = 4096
+SLIDE = 512
+#WINDOW = 2048
+#SLIDE = 512
+#WINDOW = 2048
+#SLIDE = 2048
 SAMPLERATE = 44100
 
 LEWDWALL_IP='10.0.20.16'
 LEWDWALL_PORT=8000
 
-SPECTROGRAM_LENGTH = 1024
+SPECTROGRAM_LENGTH = 2048
 #SPECTROGRAM_LENGTH = 256
 
 from OpenGL.GLUT import *
@@ -34,7 +39,7 @@ g = Globals()
 g.scroll_spectre = False
 
 def freq_to_fourier(hz):
-    return int(RESOLUTION * hz / SAMPLERATE)
+    return int(WINDOW * hz / SAMPLERATE)
 
 class FourLight(object):
     def __init__(self, freqs):
@@ -48,38 +53,50 @@ class FourLights(object):
     def __init__(self, inp, lights):
         self.inp = inp
         self.lights = lights
-        self.freq = np.linspace(0.2, 0.8, RESOLUTION)
+        self.freq = np.linspace(0.2, 0.8, WINDOW)
         self.freql = self.freq
         self.freqr = self.freq
-        self.doge = np.cos(np.linspace(0.0, (float(RESOLUTION - 1) / RESOLUTION) * 2 * pi, RESOLUTION))
-        self.doger = self.doge
-        self.dogel = self.doge
+        #self.wave = np.cos(np.linspace(0.0, (float(WINDOW - 1) / WINDOW) * 2 * pi, WINDOW))
+        self.ring = np.zeros(WINDOW * 2, dtype=np.int16)
+        self.wave = np.zeros(WINDOW * 2, dtype=np.int16)
+        self.wavel = self.wave[::2]
+        self.waver = self.wave[1::2]
 
+        # Ring buffer position
         self.sample = 0
 
         self.fcs = []
 
     def next(self):
-        self.sample += RESOLUTION
 
-        w = (np.arange(0, 2 * (RESOLUTION / 2)) - (RESOLUTION / 2)) * (
-            1.0/ (RESOLUTION / 2))
+        w = (np.arange(0, 2 * (WINDOW / 2)) - (WINDOW / 2)) * (
+            1.0/ (WINDOW / 2))
 
         www = (1. - w ** 2)
 
-        ifr_l = np.fft.fft(self.dogel * www)
-        ifr_r = np.fft.fft(self.doger * www)
-        #self.freql = np.abs(ifr_l / (32768 * (RESOLUTION / 2)))
-        #self.freqr = np.abs(ifr_r / (32768 * (RESOLUTION / 2)))
-        #self.freql = np.abs(ifr_l / (32768 * (RESOLUTION / 100)))
-        #self.freqr = np.abs(ifr_r / (32768 * (RESOLUTION / 100)))
-        self.freql = np.abs(ifr_l / ((RESOLUTION / 2) * (32768 / (RESOLUTION >> 2))))
-        self.freqr = np.abs(ifr_r / ((RESOLUTION / 2) * (32768 / (RESOLUTION >> 2))))
+        ifr_l = np.fft.fft(self.wavel * www)
+        ifr_r = np.fft.fft(self.waver * www)
+        #self.freql = np.abs(ifr_l / (32768 * (WINDOW / 2)))
+        #self.freqr = np.abs(ifr_r / (32768 * (WINDOW / 2)))
+        #self.freql = np.abs(ifr_l / (32768 * (WINDOW / 100)))
+        #self.freqr = np.abs(ifr_r / (32768 * (WINDOW / 100)))
+        self.freql = np.abs(ifr_l / ((WINDOW / 2) * (32768 / (WINDOW >> 2))))
+        self.freqr = np.abs(ifr_r / ((WINDOW / 2) * (32768 / (WINDOW >> 2))))
         # TODO: remove alias.
         self.freq = self.freql
-        self.wav = np.frombuffer(self.inp.read(RESOLUTION * 4), dtype=np.int16)
-        self.dogel = self.wav[::2]
-        self.doger = self.wav[1::2]
+        self.ring[self.sample:self.sample + SLIDE] \
+            = np.frombuffer(self.inp.read(SLIDE * 2), dtype=np.int16)
+
+        self.sample += SLIDE
+        self.sample %= WINDOW
+
+        #print self.sample, WINDOW, WINDOW - self.sample
+        #print len(self.ring[self.sample:])
+        self.wave[:WINDOW * 2 - self.sample] = self.ring[self.sample:]
+        self.wave[WINDOW * 2 - self.sample:] = self.ring[:self.sample]
+
+        self.wavel = self.wave[::2]
+        self.waver = self.wave[1::2]
 
         for _ in self.fcs:
             _(self)
@@ -131,9 +148,9 @@ class FourGL(object):
     def create_vertices(self):
         cols = []
         self.vertices = []
-        for i in xrange(RESOLUTION):
-            p = float(i) / RESOLUTION
-            r = (1.0 / RESOLUTION) * 1.9
+        for i in xrange(WINDOW):
+            p = float(i) / WINDOW
+            r = (1.0 / WINDOW) * 1.9
             for _ in xrange(4):
                 cols.append((p, 0, 1 - p))
             x = p * 2 - 1
@@ -153,8 +170,8 @@ class FourGL(object):
             print light.freqs
             for freq, colour in zip(light.freqs,
                     (np.identity(3) * 255.0).tolist()):
-                x = (float(freq_to_fourier(freq) + .5) / RESOLUTION) * 2 - 1
-                hs = 1.0 / RESOLUTION
+                x = (float(freq_to_fourier(freq) + .5) / WINDOW) * 2 - 1
+                hs = 1.0 / WINDOW
                 #hs *= 5
                 self.pointer_verts.extend([
                         (x - hs, 0),
@@ -181,7 +198,7 @@ class FourGL(object):
         self.vertices[3::4, 1] = self.fl.freq * 2 - 1
         glColorPointer(3, GL_FLOAT, 0, self.cols)
         glVertexPointer(2, GL_FLOAT, 0, self.vertices)
-        glDrawArrays(GL_QUADS, 0, RESOLUTION * 4)
+        glDrawArrays(GL_QUADS, 0, WINDOW * 4)
 
         glColorPointer(3, GL_FLOAT, 0, self.pointer_cols)
         glVertexPointer(2, GL_FLOAT, 0, self.pointer_verts)
@@ -213,13 +230,15 @@ class FourSpectroGL(object):
         glPixelStorei(GL_UNPACK_ALIGNMENT, 1)
 
         # Clear texture (black)
-        texdata = np.zeros((SPECTROGRAM_LENGTH, RESOLUTION / 2, 3), dtype=np.byte)
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB8, SPECTROGRAM_LENGTH, RESOLUTION / 2,
+        texdata = np.zeros((SPECTROGRAM_LENGTH, WINDOW / 2, 3), dtype=np.byte)
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB8, SPECTROGRAM_LENGTH, WINDOW / 2,
             0, GL_RGB, GL_UNSIGNED_BYTE, texdata)
 
         # Simple interpolation and repeat
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST)
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST)
+        #glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST)
+        #glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST)
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR)
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR)
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT)
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT)
 
@@ -235,7 +254,7 @@ class FourSpectroGL(object):
         # Update spectogram
         #texdata = np.reshape(np.array(self.fl.freq * 10000, dtype=np.byte), (-1, 1))[:, [0, 0, 0]]
         #texdata = np.reshape(np.array(self.fl.freq * 100, dtype=np.byte), (-1, 1))[:, [0, 0, 0]]
-        #texdata = np.reshape(np.array(np.minimum(self.fl.freq[:RESOLUTION / 2] * 255 * 40, 255), dtype=np.ubyte), (-1, 1))[:, [0, 0, 0]]
+        #texdata = np.reshape(np.array(np.minimum(self.fl.freq[:WINDOW / 2] * 255 * 40, 255), dtype=np.ubyte), (-1, 1))[:, [0, 0, 0]]
         #texdata = np.reshape(np.array(np.minimum(self.fl.freq * 255 * 1, 255), dtype=np.ubyte), (-1, 1))[:, [0, 0, 0]]
         #texdata = np.reshape(np.array(np.minimum(self.fl.freq * 255 * 40, 255), dtype=np.ubyte), (
         glClear(GL_COLOR_BUFFER_BIT)
@@ -266,12 +285,12 @@ class FourSpectroGL(object):
         glutSwapBuffers()
 
     def idle(self):
-        frl = np.reshape(np.array(np.minimum(self.fl.freql[:RESOLUTION / 2] * 255 * 1, 255), dtype=np.ubyte), (-1, 1))
-        frr = np.reshape(np.array(np.minimum(self.fl.freqr[:RESOLUTION / 2] * 255 * 1, 255), dtype=np.ubyte), (-1, 1))
+        frl = np.reshape(np.array(np.minimum(self.fl.freql[:WINDOW / 2] * 255 * 1, 255), dtype=np.ubyte), (-1, 1))
+        frr = np.reshape(np.array(np.minimum(self.fl.freqr[:WINDOW / 2] * 255 * 1, 255), dtype=np.ubyte), (-1, 1))
         texdata = np.hstack((frl, frr, frr / 2 + frl / 2))
 
         #print texdata[1:5]
-        glTexSubImage2D(GL_TEXTURE_2D, 0, self.frame_counter, 0, 1, RESOLUTION / 2,
+        glTexSubImage2D(GL_TEXTURE_2D, 0, self.frame_counter, 0, 1, WINDOW / 2,
             GL_RGB, GL_UNSIGNED_BYTE, texdata)
 
         self.frame_counter = (self.frame_counter + 1) % SPECTROGRAM_LENGTH
@@ -317,7 +336,7 @@ LEWD = False
 if __name__ == '__main__':
     lampjes = []
     for i in xrange(3):
-        lampjes.append(FourLight([SAMPLERATE / RESOLUTION * (j + (i * 3))
+        lampjes.append(FourLight([SAMPLERATE / WINDOW * (j + (i * 3))
             for j in xrange(3)]))
     for tone in [0, 2, 3, 5, 7, 8, 10]:
         lampjes.append(FourLight([(220.0 * (2.0 ** (octa + (tone/12.0))))
@@ -330,7 +349,7 @@ if __name__ == '__main__':
         dmx.open()
 
         def _write_led(fourlights):
-            avg = np.sum(fourlights.freq) / RESOLUTION * 2
+            avg = np.sum(fourlights.freq) / WINDOW * 2
             wr = [fourlights.freq[4 * (i + 1)] * 45 for i in xrange(9)]
             freq = np.array(fourlights.freq)
             freq[freq < avg] = 0
@@ -341,7 +360,7 @@ if __name__ == '__main__':
             dmx.write(wr)
 
         def write_led(fourlights):
-            #avg = np.sum(fourlights.freq) / RESOLUTION * 2
+            #avg = np.sum(fourlights.freq) / WINDOW * 2
             #wr = [fourlights.freq[4 * (i + 1)] * 45 for i in xrange(9)]
             #freq = np.array(fourlights.freq)
             #freq[freq < avg] = 0
@@ -393,7 +412,7 @@ if __name__ == '__main__':
         fl.next()
         hoi += 1
         frames += 1
-        if hoi > 1 or True:
+        if hoi > 6 or False:
             hoi = 0
             glutPostRedisplay()
         fgl.idle()
