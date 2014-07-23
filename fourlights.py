@@ -12,6 +12,7 @@ import ctypes
 #WINDOW = 512
 #WINDOW = 128
 WINDOW = 4096
+#WINDOW = 2048
 SLIDE = 512
 #WINDOW = 2048
 #SLIDE = 512
@@ -295,7 +296,7 @@ class FourSpectroGL(object):
             base = 0.0
 
         clamp = 0.0
-        if True:
+        if False:
             clamp = 0.5
 
         if g.logarithmic_spectre:
@@ -339,7 +340,6 @@ class FourLewds(object):
         self.screen = RemoteScreen(LEWDWALL_IP, LEWDWALL_PORT,
             dimension=(self.w,self.h))
 
-        # hoi
         f = [[(0, 0, 0) for y in range(self.h)] for x in range(self.w)]
         self.screen.load_frame(f)
         self.screen.push()
