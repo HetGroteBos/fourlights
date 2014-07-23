@@ -9,13 +9,15 @@ uniform float logarithmic;
 
 uniform sampler2D spectrogram;
 
+const float a = 10.0;
+
 void main()
 {
     vec4 color;
 
     if (logarithmic > 0.0)
         color = texture2D(spectrogram, vec2(gl_TexCoord[0].s,
-            exp2(gl_TexCoord[0].t) * 0.5 - 1.0));
+            (pow(a, gl_TexCoord[0].t) - 1.0) / (a - 1.0)));
     else
         color = texture2D(spectrogram, gl_TexCoord[0].st);
 
