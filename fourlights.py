@@ -61,6 +61,7 @@ g = Globals()
 # some keyboard globals
 g.scroll_spectre = False
 g.logarithmic_spectre = False
+g.volume_spectre = False
 
 def freq_to_fourier(hz):
     return int(WINDOW * hz / SAMPLERATE)
@@ -258,7 +259,10 @@ class FourSpectroGL(object):
         glUseProgram(self.spectre_prog)
         self.log_uniform = \
             glGetUniformLocation(self.spectre_prog, 'logarithmic')
+        self.volume_uniform = \
+            glGetUniformLocation(self.spectre_prog, 'volume')
         glUniform1f(self.log_uniform, -1.0)
+        glUniform1f(self.volume_uniform, -1.0)
 
         # Clear texture (black)
         texdata = np.zeros((SPECTROGRAM_LENGTH, WINDOW / 2, 3), dtype=np.byte)
@@ -303,6 +307,11 @@ class FourSpectroGL(object):
             glUniform1f(self.log_uniform, 1.0)
         else:
             glUniform1f(self.log_uniform, -1.0)
+
+        if g.volume_spectre:
+            glUniform1f(self.volume_uniform, 1.0)
+        else:
+            glUniform1f(self.volume_uniform, -1.0)
 
         glBegin(GL_QUADS)
         glTexCoord(base + 0.0, 1.0 - clamp)
@@ -459,6 +468,9 @@ if __name__ == '__main__':
 
         if c == 'l':
             g.logarithmic_spectre = not g.logarithmic_spectre
+
+        if c == 'L':
+            g.volume_spectre = not g.volume_spectre
 
     def render():
         fgl.draw()
