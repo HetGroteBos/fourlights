@@ -9,21 +9,16 @@ import sys
 
 import ctypes
 
-#WINDOW = 512
-#WINDOW = 128
-WINDOW = 4096
-SLIDE = 512
-#WINDOW = 2048
-#SLIDE = 512
-#WINDOW = 2048
-#SLIDE = 2048
+WINDOW = 4096 # Recommended values: 1024, 2048 and 4096
+SLIDE = 512 # Recommended values: 128, 256, 512, 1024
+SPECTROGRAM_LENGTH = 2048
+
 SAMPLERATE = 44100
 
+# Only relevant when using LEWD for LED visualisation
 LEWDWALL_IP='10.0.20.16'
 LEWDWALL_PORT=8000
 
-SPECTROGRAM_LENGTH = 2048
-#SPECTROGRAM_LENGTH = 256
 
 from OpenGL.GLUT import *
 from OpenGL.GL import *
@@ -56,7 +51,6 @@ class FourLights(object):
         self.freq = np.linspace(0.2, 0.8, WINDOW)
         self.freql = self.freq
         self.freqr = self.freq
-        #self.wave = np.cos(np.linspace(0.0, (float(WINDOW - 1) / WINDOW) * 2 * pi, WINDOW))
         self.ring = np.zeros(WINDOW * 2, dtype=np.int16)
         self.wave = np.zeros(WINDOW * 2, dtype=np.int16)
         self.wavel = self.wave[::2]
@@ -76,10 +70,6 @@ class FourLights(object):
 
         ifr_l = np.fft.fft(self.wavel * www)
         ifr_r = np.fft.fft(self.waver * www)
-        #self.freql = np.abs(ifr_l / (32768 * (WINDOW / 2)))
-        #self.freqr = np.abs(ifr_r / (32768 * (WINDOW / 2)))
-        #self.freql = np.abs(ifr_l / (32768 * (WINDOW / 100)))
-        #self.freqr = np.abs(ifr_r / (32768 * (WINDOW / 100)))
         self.freql = np.abs(ifr_l / ((WINDOW / 2) * (32768 / (WINDOW >> 2))))
         self.freqr = np.abs(ifr_r / ((WINDOW / 2) * (32768 / (WINDOW >> 2))))
         # TODO: remove alias.
@@ -90,8 +80,6 @@ class FourLights(object):
         self.sample += SLIDE
         self.sample %= WINDOW
 
-        #print self.sample, WINDOW, WINDOW - self.sample
-        #print len(self.ring[self.sample:])
         self.wave[:WINDOW * 2 - self.sample] = self.ring[self.sample:]
         self.wave[WINDOW * 2 - self.sample:] = self.ring[:self.sample]
 
@@ -251,12 +239,6 @@ class FourSpectroGL(object):
         #glOrtho(-1.0, -.8, -1.0, 1.0, -1.0, 1.0)
         glMatrixMode(GL_MODELVIEW)
 
-        # Update spectogram
-        #texdata = np.reshape(np.array(self.fl.freq * 10000, dtype=np.byte), (-1, 1))[:, [0, 0, 0]]
-        #texdata = np.reshape(np.array(self.fl.freq * 100, dtype=np.byte), (-1, 1))[:, [0, 0, 0]]
-        #texdata = np.reshape(np.array(np.minimum(self.fl.freq[:WINDOW / 2] * 255 * 40, 255), dtype=np.ubyte), (-1, 1))[:, [0, 0, 0]]
-        #texdata = np.reshape(np.array(np.minimum(self.fl.freq * 255 * 1, 255), dtype=np.ubyte), (-1, 1))[:, [0, 0, 0]]
-        #texdata = np.reshape(np.array(np.minimum(self.fl.freq * 255 * 40, 255), dtype=np.ubyte), (
         glClear(GL_COLOR_BUFFER_BIT)
 
         if g.scroll_spectre:
