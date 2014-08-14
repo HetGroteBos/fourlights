@@ -25,6 +25,28 @@ from OpenGL.GL import *
 
 import pyaudio
 
+# helper function for compiling GLSL shaders
+def build_frag_prog(filename):
+    frag_shader = glCreateShader(GL_FRAGMENT_SHADER)
+    #print open('frag.frag').read().split('\n')
+    glShaderSource(frag_shader, open(filename).read().split('\n'))
+    glCompileShader(frag_shader)
+
+    if glGetShaderiv(frag_shader, GL_COMPILE_STATUS) != GL_TRUE:
+        print "Compiling fragment shader '%s' failed" % filename
+        print glGetShaderInfoLog(frag_shader)
+        sys.exit(1)
+
+    # Build GPU program
+    frag_prog = glCreateProgram()
+    err = glAttachShader(frag_prog, frag_shader)
+    glLinkProgram(frag_prog)
+
+    if glGetProgramiv(frag_prog, GL_LINK_STATUS) != GL_TRUE:
+        print "Linking fragment program '%s' failed" % filename
+
+    return frag_shader, frag_prog
+
 # globals object
 class Globals(object):
     pass
@@ -32,6 +54,7 @@ g = Globals()
 
 # some keyboard globals
 g.scroll_spectre = False
+g.logarithmic_spectre = False
 
 def freq_to_fourier(hz):
     return int(WINDOW * hz / SAMPLERATE)
@@ -217,6 +240,13 @@ class FourSpectroGL(object):
         glPixelStorei(GL_PACK_ALIGNMENT, 1)
         glPixelStorei(GL_UNPACK_ALIGNMENT, 1)
 
+        # Compile shader for visualisation support
+        self.spectre_shader, self.spectre_prog = build_frag_prog('spectre.frag')
+        glUseProgram(self.spectre_prog)
+        self.log_uniform = \
+            glGetUniformLocation(self.spectre_prog, 'logarithmic')
+        glUniform1f(self.log_uniform, -1.0)
+
         # Clear texture (black)
         texdata = np.zeros((SPECTROGRAM_LENGTH, WINDOW / 2, 3), dtype=np.byte)
         glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB8, SPECTROGRAM_LENGTH, WINDOW / 2,
@@ -247,8 +277,13 @@ class FourSpectroGL(object):
             base = 0.0
 
         clamp = 0.0
-        if True:
+        if False:
             clamp = 0.5
+
+        if g.logarithmic_spectre:
+            glUniform1f(self.log_uniform, 1.0)
+        else:
+            glUniform1f(self.log_uniform, -1.0)
 
         glBegin(GL_QUADS)
         glTexCoord(base + 0.0, 1.0 - clamp)
@@ -286,7 +321,6 @@ class FourLewds(object):
         self.screen = RemoteScreen(LEWDWALL_IP, LEWDWALL_PORT,
             dimension=(self.w,self.h))
 
-        # hoi
         f = [[(0, 0, 0) for y in range(self.h)] for x in range(self.w)]
         self.screen.load_frame(f)
         self.screen.push()
@@ -403,6 +437,9 @@ if __name__ == '__main__':
     def keyboard(c, x, y):
         if c == 's':
             g.scroll_spectre = not g.scroll_spectre
+
+        if c == 'l':
+            g.logarithmic_spectre = not g.logarithmic_spectre
 
     def render():
         fgl.draw()
