@@ -9,7 +9,7 @@ import sys
 
 import ctypes
 
-WINDOW = 4096 # Recommended values: 1024, 2048 and 4096
+WINDOW = 2048 # Recommended values: 1024, 2048 and 4096
 SLIDE = 512 # Recommended values: 128, 256, 512, 1024
 SPECTROGRAM_LENGTH = 2048
 
@@ -19,11 +19,12 @@ SAMPLERATE = 44100
 LEWDWALL_IP='10.0.20.16'
 LEWDWALL_PORT=8000
 
+FFFT = False
 
 from OpenGL.GLUT import *
 from OpenGL.GL import *
 
-import pyaudio
+#import pyaudio
 
 # helper function for compiling GLSL shaders
 def build_frag_prog(filename):
@@ -56,6 +57,7 @@ g = Globals()
 g.scroll_spectre = False
 g.logarithmic_spectre = False
 g.volume_spectre = False
+g.ffft = FFFT
 
 def freq_to_fourier(hz):
     return int(WINDOW * hz / SAMPLERATE)
@@ -67,6 +69,11 @@ class FourLight(object):
     def blinkenlights(self, freq):
         pass
 
+def odd_even_decomp(arr):
+    odd = (arr - arr[::-1]) / 2.0
+    even = odd - arr
+    return odd, even
+
 class FourLights(object):
 
     def __init__(self, inp, lights):
@@ -77,6 +84,7 @@ class FourLights(object):
         self.freqr = self.freq
         self.ring = np.zeros(WINDOW * 2, dtype=np.int16)
         self.wave = np.zeros(WINDOW * 2, dtype=np.int16)
+        self.wavec = np.zeros(WINDOW, dtype=np.int16)
         self.wavel = self.wave[::2]
         self.waver = self.wave[1::2]
 
@@ -86,7 +94,12 @@ class FourLights(object):
         self.fcs = []
 
     def next(self):
+        if g.ffft:
+            return self._next_single_fft()
+        else:
+            return self._next_dual_fft()
 
+    def _next_dual_fft(self):
         w = (np.arange(0, 2 * (WINDOW / 2)) - (WINDOW / 2)) * (
             1.0/ (WINDOW / 2))
 
@@ -94,6 +107,7 @@ class FourLights(object):
 
         ifr_l = np.fft.fft(self.wavel * www)
         ifr_r = np.fft.fft(self.waver * www)
+
         self.freql = np.abs(ifr_l / ((WINDOW / 2) * (32768 / (WINDOW >> 2))))
         self.freqr = np.abs(ifr_r / ((WINDOW / 2) * (32768 / (WINDOW >> 2))))
         # TODO: remove alias.
@@ -112,6 +126,41 @@ class FourLights(object):
 
         for _ in self.fcs:
             _(self)
+
+    def _next_single_fft(self):
+        w = (np.arange(0, 2 * (WINDOW / 2)) - (WINDOW / 2)) * (
+            1.0/ (WINDOW / 2))
+
+        www = (1. - w ** 2)
+
+        ifr = np.fft.fft(self.wavec * www)
+
+        self.freqc = np.abs(ifr / ((WINDOW / 2) * (32768 / (WINDOW >> 2))))
+        freqc_odd, freqc_even = odd_even_decomp(ifr)
+
+        ifr_l = np.real(freqc_even) + 1.0j * np.imag(freqc_odd)
+        ifr_r = np.real(freqc_odd) + 1.0j * np.imag(freqc_even)
+
+        self.freql = np.abs(ifr_l / ((WINDOW / 2) * (32768 / (WINDOW >> 2))))
+        self.freqr = np.abs(ifr_r / ((WINDOW / 2) * (32768 / (WINDOW >> 2))))
+
+        # TODO: remove alias.
+        self.freq = self.freql
+        self.ring[self.sample:self.sample + SLIDE] \
+            = np.frombuffer(self.inp.read(SLIDE * 2), dtype=np.int16)
+
+        self.sample += SLIDE
+        self.sample %= WINDOW
+
+        self.wave[:WINDOW * 2 - self.sample] = self.ring[self.sample:]
+        self.wave[WINDOW * 2 - self.sample:] = self.ring[:self.sample]
+
+        self.wavec = www * self.wave[::2] + 1.0j * (self.wave[1::2] * www)
+
+        for _ in self.fcs:
+            _(self)
+
+        return
 
 class FourDMX(object):
     def __init__(self):
@@ -452,6 +501,13 @@ if __name__ == '__main__':
 
         if c == 'L':
             g.volume_spectre = not g.volume_spectre
+
+        if c == 'f':
+            g.ffft = not g.ffft
+            if g.ffft:
+                print "Now using one FFT"
+            else:
+                print "Now using two FFTs"
 
     def render():
         fgl.draw()
