@@ -1,7 +1,7 @@
 # Fourier based light clavier.
 
 import numpy as np
-import time
+from time import time
 from math import pi
 
 import sys
@@ -10,7 +10,7 @@ import sys
 import ctypes
 
 WINDOW = 2048 # Recommended values: 1024, 2048 and 4096
-SLIDE = 512 # Recommended values: 128, 256, 512, 1024
+SLIDE = 2048 # Recommended values: 128, 256, 512, 1024
 SPECTROGRAM_LENGTH = 2048
 
 SAMPLERATE = 44100
@@ -59,6 +59,9 @@ g.logarithmic_spectre = False
 g.volume_spectre = False
 g.ffft = FFFT
 
+fft1 = []
+fft2 = []
+
 def freq_to_fourier(hz):
     return int(WINDOW * hz / SAMPLERATE)
 
@@ -71,8 +74,10 @@ class FourLight(object):
 
 def odd_even_decomp(arr):
     odd = (arr - arr[::-1]) / 2.0
-    even = odd - arr
+    even = arr - odd #lolwut
+    #even = odd - arr
     return odd, even
+
 
 class FourLights(object):
 
@@ -95,9 +100,11 @@ class FourLights(object):
 
     def next(self):
         if g.ffft:
-            return self._next_single_fft()
+            x = self._next_single_fft()
         else:
-            return self._next_dual_fft()
+            x = self._next_dual_fft()
+
+        return x
 
     def _next_dual_fft(self):
         w = (np.arange(0, 2 * (WINDOW / 2)) - (WINDOW / 2)) * (
@@ -105,8 +112,11 @@ class FourLights(object):
 
         www = (1. - w ** 2)
 
+        t = time()
         ifr_l = np.fft.fft(self.wavel * www)
         ifr_r = np.fft.fft(self.waver * www)
+        fft2.append(time() - t)
+        #print(time() - t, 'seconds')
 
         self.freql = np.abs(ifr_l / ((WINDOW / 2) * (32768 / (WINDOW >> 2))))
         self.freqr = np.abs(ifr_r / ((WINDOW / 2) * (32768 / (WINDOW >> 2))))
@@ -133,16 +143,29 @@ class FourLights(object):
 
         www = (1. - w ** 2)
 
+        t = time()
         ifr = np.fft.fft(self.wavec * www)
+        #print(time() - t, 'seconds')
 
-        self.freqc = np.abs(ifr / ((WINDOW / 2) * (32768 / (WINDOW >> 2))))
-        freqc_odd, freqc_even = odd_even_decomp(ifr)
+        #f(-x) = -f(x)
+        freqc_odd = (ifr - ifr[::-1]) / 2.0
 
-        ifr_l = np.real(freqc_even) + 1.0j * np.imag(freqc_odd)
-        ifr_r = np.real(freqc_odd) + 1.0j * np.imag(freqc_even)
+        #f(x) = f(-x)
+        ifr -= freqc_odd
 
-        self.freql = np.abs(ifr_l / ((WINDOW / 2) * (32768 / (WINDOW >> 2))))
-        self.freqr = np.abs(ifr_r / ((WINDOW / 2) * (32768 / (WINDOW >> 2))))
+        ifr_l = ifr
+        e_imag = ifr.imag
+        ifr_l.imag = freqc_odd.imag
+        ifr_r = freqc_odd
+        ifr_r.imag = e_imag
+
+        #ifr_l = np.sqrt(freqc_even.real ** 2 +  freqc_odd.imag ** 2)
+        #ifr_r = np.sqrt(freqc_odd.real ** 2 + freqc_even.imag ** 2)
+        fft1.append(time() - t)
+
+        #self.freql = np.abs(ifr_l / ((WINDOW / 2) * (32768 / (WINDOW >> 2))))
+        self.freql = np.abs(ifr_l) / ((WINDOW / 2) * (32768 / (WINDOW >> 2)))
+        self.freqr = np.abs(ifr_r) / ((WINDOW / 2) * (32768 / (WINDOW >> 2)))
 
         # TODO: remove alias.
         self.freq = self.freql
@@ -291,14 +314,14 @@ class FourSpectroGL(object):
         glPixelStorei(GL_UNPACK_ALIGNMENT, 1)
 
         # Compile shader for visualisation support
-        self.spectre_shader, self.spectre_prog = build_frag_prog('spectre.frag')
-        glUseProgram(self.spectre_prog)
-        self.log_uniform = \
-            glGetUniformLocation(self.spectre_prog, 'logarithmic')
-        self.volume_uniform = \
-            glGetUniformLocation(self.spectre_prog, 'volume')
-        glUniform1f(self.log_uniform, -1.0)
-        glUniform1f(self.volume_uniform, -1.0)
+        #self.spectre_shader, self.spectre_prog = build_frag_prog('spectre.frag')
+        #glUseProgram(self.spectre_prog)
+        #self.log_uniform = \
+        #    glGetUniformLocation(self.spectre_prog, 'logarithmic')
+        #self.volume_uniform = \
+        #    glGetUniformLocation(self.spectre_prog, 'volume')
+        #glUniform1f(self.log_uniform, -1.0)
+        #glUniform1f(self.volume_uniform, -1.0)
 
         # Clear texture (black)
         texdata = np.zeros((SPECTROGRAM_LENGTH, WINDOW / 2, 3), dtype=np.byte)
@@ -333,15 +356,15 @@ class FourSpectroGL(object):
         if False:
             clamp = 0.5
 
-        if g.logarithmic_spectre:
-            glUniform1f(self.log_uniform, 1.0)
-        else:
-            glUniform1f(self.log_uniform, -1.0)
+        #if g.logarithmic_spectre:
+        #    glUniform1f(self.log_uniform, 1.0)
+        #else:
+        #    glUniform1f(self.log_uniform, -1.0)
 
-        if g.volume_spectre:
-            glUniform1f(self.volume_uniform, 1.0)
-        else:
-            glUniform1f(self.volume_uniform, -1.0)
+        #if g.volume_spectre:
+        #    glUniform1f(self.volume_uniform, 1.0)
+        #else:
+        #    glUniform1f(self.volume_uniform, -1.0)
 
         glBegin(GL_QUADS)
         glTexCoord(base + 0.0, 1.0 - clamp)
@@ -483,13 +506,20 @@ if __name__ == '__main__':
     def idle():
         global hoi, frames
 
-        fl.next()
-        hoi += 1
-        frames += 1
-        if hoi > 6 or False:
-            hoi = 0
-            glutPostRedisplay()
-        fgl.idle()
+        try:
+            fl.next()
+            hoi += 1
+            frames += 1
+            if hoi > 10 or False:
+                hoi = 0
+                glutPostRedisplay()
+            fgl.idle()
+        except KeyboardInterrupt as _:
+            print('Good-fucking-bye.')
+            print('fft1:', sum(fft1) / len(fft1))
+            print('fft2:', sum(fft2) / len(fft2))
+            import sys
+            sys.exit(1)
 
     # Handle keyboard input
     def keyboard(c, x, y):
