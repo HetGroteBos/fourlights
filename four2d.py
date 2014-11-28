@@ -12,8 +12,8 @@ class Four2D(object):
         self.fl = fourlights
         self.g = glob
 
-        self.w = 1920 / 2
-        self.h = 1024
+        self.w = 1024 # 1920 / 2
+        self.h = 512
 
         self.screen = pygame.display.set_mode((self.w, self.h), 0, 32)
 
@@ -26,11 +26,13 @@ class Four2D(object):
         pygame.init()
 
     def draw(self):
-        #frl = np.reshape(np.array(np.minimum(self.fl.freql[:self.fl.window / 2] * 255 * 1, 255), dtype=np.ubyte), (-1, 1))
-        #frr = np.reshape(np.array(np.minimum(self.fl.freqr[:self.fl.window / 2] * 255 * 1, 255), dtype=np.ubyte), (-1, 1))
-
         left = self.fl.freql[:self.fl.window / 2][::-1] * 255
         right = self.fl.freqr[:self.fl.window / 2][::-1] * 255
+
+        trim = (self.fl.window / 2) / self.h
+        if trim != 1:
+            left = (left[::trim] + left[1::trim]) / trim
+            right = (right[::trim] + right[1::trim]) / trim
 
         r = right.astype(np.int) << 16
         g = left.astype(np.int) << 8
