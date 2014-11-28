@@ -230,7 +230,7 @@ if __name__ == '__main__':
         au = FourAudio()
 
         def write_wav(fourlights):
-            w = fourlights.wav.tostring()
+            w = fourlights.wave.tostring()
             au.write(w)
 
         fl.fcs.append(write_wav)
