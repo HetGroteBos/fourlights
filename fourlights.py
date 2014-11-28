@@ -14,6 +14,7 @@ SAMPLERATE = 44100
 FFFT = False
 
 GUI = True
+OPENGL = False
 SPECTRE = True
 SPECTRE_SHADER = True
 DMX = False
@@ -27,8 +28,11 @@ LEWDWALL_PORT=8000
 
 
 if GUI:
-    from fourbargl import FourBarGL
-    from fourspectrogl import FourSpectroGL
+    if OPENGL:
+        from fourbargl import FourBarGL
+        from fourspectrogl import FourSpectroGL
+    else:
+        from four2d import Four2D
 
 if DMX:
     from fourdmx import FourDMX
@@ -249,9 +253,12 @@ if __name__ == '__main__':
 
         exit(0)
 
-    if SPECTRE:
-        fgl = FourSpectroGL(fl, g, shader=SPECTRE_SHADER)
+    if OPENGL:
+        if SPECTRE:
+            fgl = FourSpectroGL(fl, g, shader=SPECTRE_SHADER)
+        else:
+            fgl = FourBarGL(fl, g)
     else:
-        fgl = FourBarGL(fl, g)
+        fgl = Four2D(fl, g)
 
     fgl.run()
