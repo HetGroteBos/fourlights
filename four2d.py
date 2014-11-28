@@ -29,15 +29,16 @@ class Four2D(object):
         #frl = np.reshape(np.array(np.minimum(self.fl.freql[:self.fl.window / 2] * 255 * 1, 255), dtype=np.ubyte), (-1, 1))
         #frr = np.reshape(np.array(np.minimum(self.fl.freqr[:self.fl.window / 2] * 255 * 1, 255), dtype=np.ubyte), (-1, 1))
 
-        l = self.fl.freql[:self.fl.window / 2][::-1] * 255
-        l = l.astype(np.int)
-        l = l << 16 | l
+        left = self.fl.freql[:self.fl.window / 2][::-1] * 255
+        right = self.fl.freqr[:self.fl.window / 2][::-1] * 255
 
-        r = self.fl.freqr[:self.fl.window / 2][::-1] * 255
-        r = r.astype(np.int)
-        r = r << 8
+        r = right.astype(np.int) << 16
+        g = left.astype(np.int) << 8
+        b = ((left + right) / 2).astype(np.int)
 
-        self.pixels[self.curr,:] = l | r
+        b = b | b << 8 | b << 16
+
+        self.pixels[self.curr,:] = r | g | b
 
         up = pygame.Rect(self.curr, 0, self.curr, self.h)
 
