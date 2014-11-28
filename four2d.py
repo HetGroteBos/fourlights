@@ -31,11 +31,11 @@ class Four2D(object):
 
         l = self.fl.freql[:self.fl.window / 2][::-1] * 255
         l = l.astype(np.int)
-        l = l << 8
+        l = l << 16 | l
 
         r = self.fl.freqr[:self.fl.window / 2][::-1] * 255
         r = r.astype(np.int)
-        r = r << 16
+        r = r << 8
 
         self.pixels[self.curr,:] = l | r
 
