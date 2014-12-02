@@ -236,10 +236,10 @@ if __name__ == '__main__':
 
     if OPENGL:
         if SPECTRE:
-            fgl = FourSpectroGL(fl, g, shader=SPECTRE_SHADER)
+            fgl = FourSpectroGL(fl, shader=SPECTRE_SHADER)
         else:
-            fgl = FourBarGL(fl, g)
+            fgl = FourBarGL(fl)
     else:
-        fgl = Four2D(fl, g)
+        fgl = Four2D(fl)
 
     fgl.run()

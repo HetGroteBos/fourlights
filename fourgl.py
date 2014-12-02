@@ -3,9 +3,12 @@ from OpenGL.GL import *
 
 class FourGL(object):
 
-    def __init__(self, fourlights, glob):
+    def __init__(self, fourlights):
         self.fl = fourlights
-        self.g = glob
+
+        self.volume_spectre = False
+        self.logarithmic_spectre = False
+        self.scroll_spectre = False
 
     def run(self):
 
@@ -48,17 +51,17 @@ def reshape(self, width, height):
 # Handle keyboard input
 def keyboard(self, c, x, y):
     if c == 's':
-        self.g.scroll_spectre = not self.g.scroll_spectre
+        self.scroll_spectre = not self.scroll_spectre
 
     if c == 'l':
-        self.g.logarithmic_spectre = not self.g.logarithmic_spectre
+        self.logarithmic_spectre = not self.logarithmic_spectre
 
     if c == 'L':
-        self.g.volume_spectre = not self.g.volume_spectre
+        self.volume_spectre = not self.volume_spectre
 
     if c == 'f':
-        self.g.ffft = not self.g.ffft
-        if self.g.ffft:
+        self.fl.ffft = not self.fl.ffft
+        if self.fl.ffft:
             print "Now using one FFT"
         else:
             print "Now using two FFTs"

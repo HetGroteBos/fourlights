@@ -8,9 +8,8 @@ from time import time
 
 class Four2D(object):
 
-    def __init__(self, fourlights, glob):
+    def __init__(self, fourlights):
         self.fl = fourlights
-        self.g = glob
 
         self.w = 512 # 1920 / 2
         self.h = 1024
