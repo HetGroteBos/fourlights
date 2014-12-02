@@ -2,7 +2,6 @@
 
 import numpy as np
 from time import time
-from math import pi
 
 import sys
 
@@ -54,9 +53,6 @@ g.scroll_spectre = False
 g.logarithmic_spectre = False
 g.volume_spectre = False
 g.ffft = FFFT
-
-#fft1 = []
-#fft2 = []
 
 def freq_to_fourier(fl, hz):
     return int(fl.window * hz / fl.samplerate)
@@ -114,11 +110,8 @@ class FourLights(object):
 
         www = (1. - w ** 2)
 
-        t = time()
         ifr_l = np.fft.fft(self.wavel * www)
         ifr_r = np.fft.fft(self.waver * www)
-        #fft2.append(time() - t)
-        #print(time() - t, 'seconds')
 
         self.freql = np.abs(ifr_l / ((self.window / 2) * (32768 / (self.window >> 2))))
         self.freqr = np.abs(ifr_r / ((self.window / 2) * (32768 / (self.window >> 2))))
@@ -145,9 +138,7 @@ class FourLights(object):
 
         www = (1. - w ** 2)
 
-        t = time()
         ifr = np.fft.fft(self.wavec * www)
-        #print(time() - t, 'seconds')
 
         #f(-x) = -f(x)
         freqc_odd = (ifr - ifr[::-1]) / 2.0
@@ -163,7 +154,6 @@ class FourLights(object):
 
         #ifr_l = np.sqrt(freqc_even.real ** 2 +  freqc_odd.imag ** 2)
         #ifr_r = np.sqrt(freqc_odd.real ** 2 + freqc_even.imag ** 2)
-        #fft1.append(time() - t)
 
         #self.freql = np.abs(ifr_l / ((self.window / 2) * (32768 / (self.window >> 2))))
         self.freql = np.abs(ifr_l) / ((self.window / 2) * (32768 / (self.window >> 2)))

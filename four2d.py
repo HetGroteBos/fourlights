@@ -12,25 +12,30 @@ class Four2D(object):
         self.fl = fourlights
         self.g = glob
 
-        self.w = 1920 # 1920 / 2
-        self.h = 512
-
-        self.screen = pygame.display.set_mode((self.w, self.h), 0, 32)
-
-        surface = pygame.display.get_surface()
-
-        self.pixels = pygame.surfarray.pixels2d(surface)
+        self.w = 512 # 1920 / 2
+        self.h = 1024
+        self.resize(self.w, self.h)
 
         self.curr = 0
 
         self.logarithmic = False
+        self.interpolate = False
 
         pygame.init()
 
-    def draw(self):
-        left = self.fl.freql[:self.fl.window / 2][::-1] * 255
-        right = self.fl.freqr[:self.fl.window / 2][::-1] * 255
+    def resize(self, w, h):
+        self.w = w
+        self.h = h
 
+        self.screen = pygame.display.set_mode((self.w, self.h), pygame.RESIZABLE, 32)
+        self.surface = pygame.display.get_surface()
+        self.pixels = pygame.surfarray.pixels2d(self.surface)
+
+    def draw(self):
+        left = self.fl.freql[:self.fl.window / 2][::-1] * 220
+        right = self.fl.freqr[:self.fl.window / 2][::-1] * 220
+        #left = self.fl.freql[:self.fl.window / 2][::-1] * 255
+        #right = self.fl.freqr[:self.fl.window / 2][::-1] * 255
 
         # TODO: Optimise this
         if self.logarithmic:
@@ -45,6 +50,11 @@ class Four2D(object):
             lvals = left[newpixelindex]
             rvals = right[newpixelindex]
 
+            #if self.interpolate:
+            #    lvals = np.correlate(lvals, [0.2, 0.6, 0.2], "same")
+            #    rvals = np.correlate(rvals, [0.2, 0.6, 0.2], "same")
+
+
             r = rvals.astype(np.int) << 16
             g = lvals.astype(np.int) << 8
             b = ((lvals + rvals) / 2).astype(np.int)
@@ -52,19 +62,15 @@ class Four2D(object):
             b = b | b << 8 | b << 16
 
             self.pixels[self.curr,:] = r | g | b
-
-            #self.pixels[self.curr,:] = left[newpixelindex]
-
-        # If not logarithmic view, apply trim & colouring
         else:
-            trim = (self.fl.window / 2) / self.h
-            if trim != 1:
-                left = (left[::trim] + left[1::trim]) / trim
-                right = (right[::trim] + right[1::trim]) / trim
+            pixelindex = np.linspace(0., (self.fl.window / 2) - 1, self.h, dtype=np.int)
 
-            r = right.astype(np.int) << 16
-            g = left.astype(np.int) << 8
-            b = ((left + right) / 2).astype(np.int)
+            lvals = left[pixelindex]
+            rvals = right[pixelindex]
+
+            r = rvals.astype(np.int) << 16
+            g = lvals.astype(np.int) << 8
+            b = ((lvals + rvals) / 2).astype(np.int)
 
             b = b | b << 8 | b << 16
 
@@ -90,6 +96,17 @@ class Four2D(object):
                     if e.key == pygame.K_l:
                         self.logarithmic = not self.logarithmic
                         print 'Log switch'
+
+                    if e.key == pygame.K_i:
+                        self.interpolate = not self.interpolate
+                        print 'Interpolate switch'
+
+                    if e.key == pygame.K_s:
+                        print('TODO: Saving.')
+
+                if e.type == pygame.VIDEORESIZE:
+                    w, h = e.dict['size']
+                    self.resize(w, h)
 
             #t = time()
             self.fl.next()
