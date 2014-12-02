@@ -6,8 +6,8 @@ from OpenGL.GLUT import *
 from OpenGL.GL import *
 
 class FourSpectroGL(FourGL):
-    def __init__(self, fourlights, glob, spectro_length=2048, shader=True):
-        FourGL.__init__(self, fourlights, glob)
+    def __init__(self, fourlights, spectro_length=2048, shader=True):
+        FourGL.__init__(self, fourlights)
 
         self.shader = shader
 

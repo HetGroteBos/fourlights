@@ -6,8 +6,8 @@ from OpenGL.GLUT import *
 from OpenGL.GL import *
 
 class FourBarGL(FourGL):
-    def __init__(self, fourlights, glob):
-        FourGL.__init__(self, fourlights, glob)
+    def __init__(self, fourlights):
+        FourGL.__init__(self, fourlights)
 
         glutInit()
 
