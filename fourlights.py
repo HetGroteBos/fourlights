@@ -43,17 +43,6 @@ if LEWD:
     from fourlewds import FourLewds
 
 
-# globals object
-class Globals(object):
-    pass
-g = Globals()
-
-# some keyboard globals
-g.scroll_spectre = False
-g.logarithmic_spectre = False
-g.volume_spectre = False
-g.ffft = FFFT
-
 def freq_to_fourier(fl, hz):
     return int(fl.window * hz / fl.samplerate)
 
@@ -96,8 +85,10 @@ class FourLights(object):
 
         self.fcs = []
 
+        self.ffft = FFFT
+
     def next(self):
-        if g.ffft:
+        if self.ffft:
             x = self._next_single_fft()
         else:
             x = self._next_dual_fft()

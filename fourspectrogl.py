@@ -64,7 +64,7 @@ class FourSpectroGL(FourGL):
 
         glClear(GL_COLOR_BUFFER_BIT)
 
-        if self.g.scroll_spectre:
+        if self.scroll_spectre:
             base = self.frame_counter / float(self.spectrogram_length)
         else:
             base = 0.0
@@ -74,12 +74,12 @@ class FourSpectroGL(FourGL):
             clamp = 0.5
 
         if self.shader:
-            if self.g.logarithmic_spectre:
+            if self.logarithmic_spectre:
                 glUniform1f(self.log_uniform, 1.0)
             else:
                 glUniform1f(self.log_uniform, -1.0)
 
-            if self.g.volume_spectre:
+            if self.volume_spectre:
                 glUniform1f(self.volume_uniform, 1.0)
             else:
                 glUniform1f(self.volume_uniform, -1.0)
