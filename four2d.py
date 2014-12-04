@@ -31,34 +31,21 @@ class Four2D(object):
         self.pixels = pygame.surfarray.pixels2d(self.surface)
 
     def draw(self):
-        #left = self.fl.freql[:self.fl.window / 2][::-1] * 255
-        #right = self.fl.freqr[:self.fl.window / 2][::-1] * 255
-
         # TODO: Optimise this
         if self.logarithmic:
             left = self.fl.freql[:self.fl.window / 2][::1] * 220
             right = self.fl.freqr[:self.fl.window / 2][::1] * 220
 
-            # 0.90 is bad, but we don't want to go beyond the fourier index ...
-            # TODO
-            #newpixelindex = np.log2(np.linspace(0., 0.90, self.h) * 32 + 1.0) / 5.
             newpixelindex = (22100.0 ** np.linspace(0.41, 1.0, self.h, endpoint=False)) / 22100.0
-            #newpixelindex = (22100.0 ** np.linspace(0.41, 1.0, self.h, endpoint=False)) / 22100.0
+            #newpixelindex = (22100.0 ** np.linspace(0.0, 1.0, self.h, endpoint=False)) / 22100.0
 
             newpixelindex *= (self.fl.window / 2)
-
-            #print "Inter"
-            #print np.min(newpixelindex)
-            #print np.max(newpixelindex)
-
             #newpixelindex %= (self.fl.window / 2)
 
             # Scale up to self.fl.window / 2
             #newpixelindex *= self.fl.window / 2
             newpixelindex = newpixelindex.astype(int)[::-1]
 
-            print np.min(newpixelindex)
-            print np.max(newpixelindex)
 
             lvals = left[newpixelindex]
             rvals = right[newpixelindex]

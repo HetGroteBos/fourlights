@@ -5,8 +5,8 @@ from time import time
 
 import sys
 
-WINDOW = 2048 # Recommended values: 1024, 2048 and 4096
-SLIDE = 512 # Recommended values: 128, 256, 512, 1024
+WINDOW = 2*8192 # Recommended values: 1024, 2048 and 4096
+SLIDE = 1024*2 # Recommended values: 128, 256, 512, 1024
 
 SAMPLERATE = 44100
 
