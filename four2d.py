@@ -6,6 +6,7 @@ import numpy as np
 
 from time import time
 
+
 class Four2D(object):
 
     def __init__(self, fourlights):
@@ -17,7 +18,7 @@ class Four2D(object):
 
         self.curr = 0
 
-        self.logarithmic = False
+        self.logarithmic = True
         self.interpolate = False
 
         pygame.init()
@@ -85,9 +86,44 @@ class Four2D(object):
 
         self.curr = (self.curr + 1) % self.w
 
+        # For image creation/saving
+        #if self.curr == 0:
+        #    self.img()
+
         #clock.tick(60)
 
         #pygame.display.flip()
+
+    def img(self, cnt=[0]):
+        # TODO: TEMPORARILY
+        from PIL import Image
+        from PIL import ImageOps
+
+        f = self.pixels[:]
+
+        d = np.ndarray(shape=(self.w, self.h, 3), dtype=np.uint8)
+
+        d[:,:,0] = (f & 0xFF0000) >> 16
+        d[:,:,1] = (f & 0x00FF00) >> 8
+        d[:,:,2] = f & 0x0000FF
+
+
+        i = Image.fromarray(d, mode='RGB')
+        j = i.rotate(270)
+
+        del i
+
+        i = ImageOps.mirror(j)
+
+        i.save('imgs/image%08d.png' % cnt[0])
+        cnt[0] += 1
+
+        del j
+        del i
+        del d
+
+
+
 
     def run(self):
         while True:
